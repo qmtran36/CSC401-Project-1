@@ -1,49 +1,64 @@
 import sys
-#from socket import *
 import socket
+import thread
+import array
+
+
+
+def start(ip, player):
+	print "A new player is trying to connect to the game server on ", ip
+	print "Current number of available players is ", player
+	if player == 1:
+		print ("One player waiting for another player to join\n")
+	else:
+		print ("Two players available, let's play!\n")
+	#return ip.recv(1024)
+def on_new_client(clientsocket, player):
+	player = player
+	#if ( player == 1 or player == 2 ):
+    	# while True:
+    	# 	msg = clientsocket.recv(1024) 
+    	#    	clientsocket.send(msg)
+
+    #clientsocket.close()
+
 
 port = int(sys.argv[1])
+response=[]
+IPaddress = socket.gethostbyname(socket.gethostname())
 #create a socket
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-print(port)
+
 # hostname = socket.gethostname() 
 # IPAddr = socket.gethostbyname(hostname) 
 #Starting game server
-s.bind((socket.gethostname(),port))
+s.bind((IPaddress,port))
 s.listen(1)
+count = 0
 
 print ("Server is ready to serve!\n")
 while 1:
+	#s.listen(1)
 	cSocket, address = s.accept()
-	char = connectionSocket.recv(1024)
-	cSocket.send(char)
-	cSocket.close()
-#addr_size = sizeof their_addr;
-#new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
 
-#calls()
+	count += 1
 
-#def main():
-	# #create a socket
-	# serverSocket = socket(AF_INET, SOCK_STREAM)
-	# #hostname = socket.gethostname() 
-	# #IPAddr = socket.gethostbyname(hostname) 
-	# #print(hostname)
-	# #print(IPAddr)
-	# #Starting game server
-	# serverSocket.bind(port)
-	# serverSocket.listen(1)
+	cSocket.send( "Connected to the Rock, Paper, Scissors Game Server." )
+	cSocket.send( str(count) )
+	start(IPaddress, count)
+	thread.start_new_thread(on_new_client, (cSocket,count))
 
-	# #addr_size = sizeof their_addr;
-	# #new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
-	# print ("Server is ready to serve!\n")
-	# #calls()
+	data = cSocket.recv(1024)
+	response.append( data )
+ 	#if not data: break
+ 	print( response )
+	cSocket.send(data)  # echo
+
+cSocket.close()
+
 
 # #Client A connected as player 1
 # def calls():
-# 	print ("A new player is trying to connect to the game server on ")
-# 	print ("Current number of available players is 1")
-# 	print ("One player waiting for another player to join\n")
 
 # 	#Client B connected as player 2
 # 	print ("A new player is trying to connect to the game server on ")
