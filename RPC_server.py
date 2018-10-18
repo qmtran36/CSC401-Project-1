@@ -1,3 +1,5 @@
+#Tony Tran qmtran
+
 import sys
 import socket
 import thread
@@ -5,102 +7,129 @@ import array
 
 
 
-def start(ip, player):
-	print "A new player is trying to connect to the game server on ", ip
-	print "Current number of available players is ", player
-	if player == 1:
-		print ("One player waiting for another player to join\n")
-	else:
-		print ("Two players available, let's play!\n")
+lock = thread.allocate_lock() 
+# players input
+p1 = ''
+p2 = ''
+# store number of clients
+clientCount = 0
 
+# thread fuction 
+def threaded(c, player):
+    global p2
+    global p1
+    global clientCount
+    
+    #data is player's game input from client
+    data = c.recv(1024) 
+    
+    # game input string contains client's number
+    # prints clients game input
+    if '1'in data:
+        p1 = data[:1]
+        print ">>Player 1 played: ", p1
+    else:
+        p2 = data[:1]
+        print ">>Player 2 played: ", p2
 
-def on_new_client(clientsocket, addr):
-	count = 1
-	while 1:
-		msg = clientsocket.recv(1024)
-        print addr, ' >> ', msg
-        #Maybe some code to compute the last digit of PI, play game or anything else can go here and when you are done.
-        clientsocket.send(msg)
-        clientsocket.close()
-	count += 1
-	print("current amount of players", count)
+    # locks the thread until other client plays
+    # if already locked, that means one player already made a choice, so release the lock
+    if(lock.locked() == False):
+        lock.acquire()
+    elif(lock.locked() == True):
+        lock.release()
+    
+    # calculate the result of the game
+    with lock:
+        result = -1        
+        
+        #same choice, game ties
+        if p1 == p2:
+            result = 0
+        #if not the same choice, results indicates the winner
+        else:
+            if p1 == 'R' and p2 == 'P':
+                result = 2
+            elif p1 == 'R' and p2 == 'S':
+                result = 1
+            elif p1 == 'P' and p2 == 'S':
+                result = 2
+            elif p1 == 'P' and p2 == 'R':
+                result = 1
+            elif p1 == 'S' and p2 == 'R':
+                result = 2
+            elif p1 == 'S' and p2 == 'P':
+                result = 1
+        
+        if player == 1:
+            if (result == 0):
+                print ">>Tie!"
+            else:
+                print ">>Player ", result, "won!"
+        else:
+            print ">>Game Over!\n"
+        
+        # let the client know the winner of the game
+        c.send(str(result))
+        # sends the farewell message to client
+        c.send("Disconnecting from the game server. Thank you for playing!")
+        #close the connection
+        c.close()
+        #decrement the client count, so the server can take other clients to join!
+        clientCount -= 1
+    return
+  
+def Main():
+    # get ip address of host
+    host = socket.gethostbyname(socket.gethostname())
+    print ("Game server address: ",host)
+    
+    # get port number from command line argument
+    port = int(sys.argv[1])
+    
+    # create welcome socket, and bine
+    # Ready to Serve!
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+    s.bind((host, port)) 
+    print("Server is ready to serve!\n") 
+  
+    #waiting for client to join!
+    s.listen(5) 
+  
+    global clientCount
 
+    while True:
+        #take a client!
+        c, addr = s.accept()
+        # prints client's adress and port number
+        print "A new player is trying to connect to the game server on ", addr[0], ":", addr[1] 
+        
+        # increment client count, so we can play when 2 joins
+        clientCount += 1
+        
+        # send welcome message to client, and player number
+        c.send( "Connected to the Rock, Paper, Scissors Game Server." )
+        c.send(str(clientCount))
+        
+        # print status, and start game thread if player is #1 or 2
+        print "Current number of available player is ", clientCount
+        if clientCount == 1:
+            print "One player is waiting for another player to join\n"
+            thread.start_new_thread(threaded, (c, clientCount))
+        elif clientCount == 2:
+            print "Two players available. Let's play!\n"
+            print ">>New Game Thread spawned"
+            thread.start_new_thread(threaded, (c, clientCount))
+        # if third client joins, let client know that server is busy, and disconnect
+        elif clientCount > 2:
+            print "Two players already playing. Can't start a new game"
+            #decrement count 
+            clientCount -= 1
+            c.close()
+            
+    s.close()
+    exit(0)
 
-
-    #clientsocket.close()
-
-hostname = socket.gethostname()    
-IPAddr = socket.gethostbyname(hostname)    
-print("Your Computer Name is:" + hostname)    
-print("Your Computer IP Address is:" + IPAddr) 
-
-port = int(sys.argv[1])
-response=[]
-IPaddress = socket.gethostbyname(socket.gethostname())
-#create a socket
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-# hostname = socket.gethostname() 
-# IPAddr = socket.gethostbyname(hostname) 
-#Starting game server
-s.bind((IPaddress,port))
-s.listen(1)
-count = 0
-
-print ("Server is ready to serve!\n")
-while 1:
-	#s.listen(1)
-	cSocket, address = s.accept()
-
-	count += 1
-
-	cSocket.send( "Connected to the Rock, Paper, Scissors Game Server." ) #S1. --Connection--
-	print(count)
-	print(str(count))
-	cSocket.send( str(count) ) #S2. --Player number
-	start(IPaddress, count)
-	thread.start_new_thread(on_new_client, (cSocket,address))
-
-	data = cSocket.recv(1024) #R1. Rock, Paper, Scissor
-	response.append( data )
-	if count == 2:
-		print ("New Game Thread spawned")
-		print ("Player 1 played: ", response[0])
-		print ("Player 1 played: ", response[1])
-		print ("Player ", count, " won!")
-		print ("Game Over.")
-
- 	print( response )
- 	print( data )
-	cSocket.send(data)  # S3. 
-
-cSocket.close()
-
-
-# #Client A connected as player 1
-# def calls():
-
-# 	#Client B connected as player 2
-# 	print ("A new player is trying to connect to the game server on ")
-# 	print ("Current number of available players is 2")
-
-# 	#Game begin Client A and B begins
-# 	print ("New Game Thread spawned")
-
-# 	#Client A chose R, P or S
-# 	print ("Player 1 played: \n")
-
-# 	#Client C is trying to connect while server is busy.
-# 	print ("A new player is trying to connect to the game server on ")
-# 	print ("Two players are already. Can't start a new game.\n")
-
-# 	#Client B chose R, P or S
-# 	print ("Player 2 played: \n")
-
-# 	#Game begin Client A and B continues and finishes.
-# 	print ("Player # won!")
-# 	print ("Game over.")
-
-
-# if __name__ == "__main__":
-#     main()
+  
+if __name__ == '__main__': 
+    Main() 
